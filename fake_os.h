@@ -1,5 +1,8 @@
 #include "fake_process.h"
 #include "linked_list.h"
+
+#define NUM_CPUS 2
+
 #pragma once
 
 
@@ -10,10 +13,10 @@ typedef struct {
 } FakePCB;
 
 struct FakeOS;
-typedef void (*ScheduleFn)(struct FakeOS* os, void* args);
+typedef void (*ScheduleFn)(struct FakeOS* os, int cpu, void* args);
 
 typedef struct FakeOS{
-  FakePCB* running;
+  FakePCB* running[NUM_CPUS];
   ListHead ready;
   ListHead waiting;
   int timer;
