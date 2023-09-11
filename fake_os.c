@@ -63,7 +63,7 @@ void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
 
 void FakeOS_simStep(FakeOS* os){
     
-    printf("************** TIME: %08d **************\n", os->timer);
+    printf("\n******************* TIME: %08d *******************\n\n", os->timer);
 
     //scan process waiting to be started
     //and create all processes starting now
@@ -159,8 +159,9 @@ void FakeOS_simStep(FakeOS* os){
         }
         
         
-        // call schedule, if defined
-        if (os->schedule_fn && ! os->running[cpu]){
+        // call scheduler, if defined
+        if (os->schedule_fn){
+            //printf("Calling the scheduler:\n");
             (*os->schedule_fn)(os, cpu, os->schedule_args);
         }
         
