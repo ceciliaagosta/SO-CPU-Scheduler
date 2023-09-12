@@ -146,12 +146,71 @@ void schedSJF(FakeOS* os, int cpu, void* args_){
     printf("\n\t\tTaking the shortest ready process: %d\n", shortest_process->pid);
 };
 
+
+//Preemptive Shortest Job First Scheduler w/Quantum Prediction for the next burst
+void schedSJF_QP(FakeOS* os, int cpu, void* args_){
+
+    // look for the first process in ready
+    // if none, return
+    if (! os->ready.first) {
+        printf("\n\t\tNo process found in ready!\n");
+        return;
+    }
+    
+    //take the first process in ready as the shortest job and check that it is going to CPU
+    FakePCB* shortest_process = (FakePCB*) os->ready.first;
+    assert(shortest_process->events.first);
+    ProcessEvent* short_e = (ProcessEvent*)shortest_process->events.first;
+    assert(short_e->type==CPU);
+    float shortest_burst = shortest_process->next_burst;
+    
+    printf("Ready queue: [pid=%d duration=%d pred=%.2f]", shortest_process->pid, short_e->duration, shortest_burst);
+    
+    //now we look for the actual shortest process through the whole ready queue, based on our next burst prediction
+    ListItem* aux = os->ready.first->next;
+    while (aux){
+        FakePCB* current_process = (FakePCB*) aux;
+        
+        assert(current_process->events.first);
+        ProcessEvent* curr_e = (ProcessEvent*)current_process->events.first;
+        float current_burst = current_process->next_burst;
+        
+        printf(" [pid=%d duration=%d pred=%.2f]", current_process->pid, curr_e->duration, current_burst);
+        
+        if (curr_e->type == CPU) {
+            if (current_burst < shortest_burst) {
+                shortest_burst = current_burst;
+                shortest_process = current_process;
+            }
+        }
+        
+        aux = aux->next;
+    }
+    printf("\n");
+    
+    //check if something is running on the current CPU
+    if (os->running[cpu]) {
+        ProcessEvent* running_e = (ProcessEvent*) os->running[cpu]->events.first;
+        //if the process running is shorter than the shortest process in ready, there is no need to switch
+        if (os->running[cpu]->next_burst < shortest_burst) return;
+        
+        os->running[cpu]->next_burst = os->running[cpu]->next_burst * (1-ALPHA) + os->running[cpu]->burst * ALPHA;
+        printf("\t\tPreempting the current running process: [pid=%d duration=%d pred=%.2f]", os->running[cpu]->pid, running_e->duration, os->running[cpu]->next_burst);
+        List_pushFront(&os->ready, (ListItem*) os->running[cpu]);
+    }
+    
+    List_detach(&os->ready, (ListItem*) shortest_process);
+    os->running[cpu]=shortest_process;
+    printf("\n\t\tTaking the shortest (predicted) ready process: %d\n", shortest_process->pid);
+};
+
+
 int main(int argc, char** argv) {
     FakeOS_init(&os);
     SchedRRArgs srr_args;
     srr_args.quantum=5;
     os.schedule_args=&srr_args;
-    os.schedule_fn=schedSJF;
+    os.schedule_fn=schedSJF_QP;
   
     for (int i=1; i<argc; ++i){
         FakeProcess new_process;

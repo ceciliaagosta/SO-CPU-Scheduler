@@ -1,15 +1,24 @@
 #include "fake_process.h"
 #include "linked_list.h"
 
+#ifndef NUM_CPUS
 #define NUM_CPUS 2
+#endif
+
+#ifndef ALPHA
+#define ALPHA 0.5
+#endif
 
 #pragma once
 
 
 typedef struct {
-  ListItem list;
-  int pid;
-  ListHead events;
+    ListItem list;
+    int pid;
+    ListHead events;
+    
+    int burst;
+    float next_burst;
 } FakePCB;
 
 struct FakeOS;

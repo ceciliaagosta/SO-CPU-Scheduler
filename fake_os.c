@@ -4,6 +4,7 @@
 
 #include "fake_os.h"
 
+
 void FakeOS_init(FakeOS* os) {
     for (int cpu=0; cpu < NUM_CPUS; ++cpu) os->running[cpu] = NULL;
     List_init(&os->ready);
@@ -39,6 +40,8 @@ void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
     new_pcb->list.next=new_pcb->list.prev=0;
     new_pcb->pid=p->pid;
     new_pcb->events=p->events;
+    
+    new_pcb->burst = 0;
 
     assert(new_pcb->events.first && "process without events");
 
@@ -47,6 +50,7 @@ void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
     ProcessEvent* e=(ProcessEvent*)new_pcb->events.first;
     switch(e->type){
         case CPU:
+            new_pcb->next_burst = e->duration;
             List_pushBack(&os->ready, (ListItem*) new_pcb);
             break;
         case IO:
@@ -133,15 +137,21 @@ void FakeOS_simStep(FakeOS* os){
             ProcessEvent* e=(ProcessEvent*) running->events.first;
             assert(e->type==CPU);
             e->duration--;
+            running->burst++;
             printf("\t\tremaining time:%d\n",e->duration);
+            printf("\t\tpassed time:%d\n",running->burst);
             if (e->duration==0){
                 printf("\t\tend burst\n");
                 List_popFront(&running->events);
                 free(e);
                 if (! running->events.first) {
                     printf("\t\tend process\n");
+                    running->next_burst = 0;
                     free(running); // kill process
                 } else {
+                    printf("\t\tprevious prediction: %.2f\n", running->next_burst);
+                    running->next_burst = running->next_burst * (1-ALPHA) + running->burst * ALPHA;
+                    printf("\t\tnext burst: %.2f\n", running->next_burst);
                     e=(ProcessEvent*) running->events.first;
                     switch (e->type){
                         case CPU:
@@ -154,6 +164,7 @@ void FakeOS_simStep(FakeOS* os){
                             break;
                     }
                 }
+                running->burst = 0;
                 os->running[cpu] = 0;
             }
         }
