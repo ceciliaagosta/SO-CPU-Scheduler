@@ -6,7 +6,7 @@ OBJS=linked_list.o\
      fake_process.o\
      fake_os.o
 
-HEADERS=linked_list.h  fake_process.h
+HEADERS=linked_list.h  fake_process.h  fake_os.h
 
 BINS=fake_process_test sched_sim
 

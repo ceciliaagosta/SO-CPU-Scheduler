@@ -12,6 +12,7 @@ void FakeOS_init(FakeOS* os) {
     List_init(&os->processes);
     os->timer=0;
     os->schedule_fn=0;
+    os->avg_ArrivalTime = 0;
 }
 
 void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
@@ -42,6 +43,7 @@ void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
     new_pcb->events=p->events;
     
     new_pcb->burst = 0;
+    new_pcb->preempted = 0;
 
     assert(new_pcb->events.first && "process without events");
 
@@ -50,7 +52,7 @@ void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
     ProcessEvent* e=(ProcessEvent*)new_pcb->events.first;
     switch(e->type){
         case CPU:
-            new_pcb->next_burst = e->duration;
+            new_pcb->next_burst = 5;
             List_pushBack(&os->ready, (ListItem*) new_pcb);
             break;
         case IO:
@@ -136,6 +138,7 @@ void FakeOS_simStep(FakeOS* os){
         if (running) {
             ProcessEvent* e=(ProcessEvent*) running->events.first;
             assert(e->type==CPU);
+            
             e->duration--;
             running->burst++;
             printf("\t\tremaining time:%d\n",e->duration);
@@ -149,9 +152,10 @@ void FakeOS_simStep(FakeOS* os){
                     running->next_burst = 0;
                     free(running); // kill process
                 } else {
-                    printf("\t\tprevious prediction: %.2f\n", running->next_burst);
+                    //printf("\t\tprevious prediction: %.2f\n", running->next_burst);
                     running->next_burst = running->next_burst * (1-ALPHA) + running->burst * ALPHA;
-                    printf("\t\tnext burst: %.2f\n", running->next_burst);
+                    //printf("\t\tnext burst: %.2f\n", running->next_burst);
+                    
                     e=(ProcessEvent*) running->events.first;
                     switch (e->type){
                         case CPU:
@@ -164,11 +168,20 @@ void FakeOS_simStep(FakeOS* os){
                             break;
                     }
                 }
-                running->burst = 0;
+                if (!running->preempted) running->burst = 0;
                 os->running[cpu] = 0;
             }
         }
         
+        int available_cpu = 0;
+        for (int i=cpu+1; i<NUM_CPUS; ++i){
+            if (os->running[cpu] && !os->running[i]){
+                printf("\t\t\t|||Another CPU is available. Skipping scheduling!|||\n");
+                available_cpu = 1;
+                break;
+            }
+        }
+        if(available_cpu) continue;
         
         // call scheduler, if defined
         if (os->schedule_fn){
@@ -178,9 +191,9 @@ void FakeOS_simStep(FakeOS* os){
         
         // if scheduler not defined and ready queue not empty
         // put the first in ready to run
-        /*if (! os->running[cpu] && os->ready.first) {
+        if (! os->running[cpu] && os->ready.first) {
             os->running[cpu]=(FakePCB*) List_popFront(&os->ready);
-        }*/
+        }
     }
         
     ++os->timer;
