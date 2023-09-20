@@ -10,6 +10,48 @@ typedef struct {
     int quantum;
 } SchedRRArgs;
 
+void printReadyQueue(FakeOS* os) {
+    FakePCB* first=(FakePCB*) os->ready.first;
+    ProcessEvent* event = (ProcessEvent*)first->events.first;
+    printf("Ready queue: [pid=%d duration=%d]", first->pid, event->duration);
+    ListItem* aux = os->ready.first->next;
+    while (aux){
+        FakePCB* current_process = (FakePCB*) aux;
+        ProcessEvent* curr_e = (ProcessEvent*)current_process->events.first;
+        printf(" [pid=%d duration=%d]", current_process->pid, curr_e->duration);
+        aux = aux->next;
+    }
+    printf("\n");
+}
+
+//***** First Come First Serve scheduler *****
+void schedFCFS(FakeOS* os, int cpu, void* args_){
+    
+    if (os->running[cpu]) return;
+
+        // look for the first process in ready
+        // if none, return
+    if (! os->ready.first) {
+        printf("\n\t\tNo process found in ready!\n");
+        return;
+    }
+    
+    printReadyQueue(os);
+
+    FakePCB* pcb=(FakePCB*) List_popFront(&os->ready);
+    os->running[cpu]=pcb;
+    assert(pcb->events.first);
+    
+    ProcessEvent* e = (ProcessEvent*)pcb->events.first;
+    assert(e->type==CPU);
+    printf("\n\t\tTaking the first ready process: %d\n", pcb->pid);
+    
+    os->avg_ArrivalTime += os->timer;
+    printf("\n\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n", os->avg_ArrivalTime);
+    os->avg_WaitingTime += os->timer - pcb->entry_time;
+    printf("\t\t*** TOTAL WAITING TIME until now: %.2f ***\n\n", os->avg_WaitingTime);
+};
+
 //***** Round Robin scheduler with Quantum based preemption *****
 void schedRR(FakeOS* os, int cpu, void* args_){
     
@@ -23,19 +65,23 @@ void schedRR(FakeOS* os, int cpu, void* args_){
         printf("\n\t\tNo process found in ready!\n");
         return;
     }
+    
+    printReadyQueue(os);
 
     FakePCB* pcb=(FakePCB*) List_popFront(&os->ready);
     os->running[cpu]=pcb;
-    printf("\n\t\tTaking the first ready process: %d\n", pcb->pid);
-        
     assert(pcb->events.first);
+    
     ProcessEvent* e = (ProcessEvent*)pcb->events.first;
     assert(e->type==CPU);
+    printf("\n\t\tTaking the first ready process: %d\n", pcb->pid);
     
     if (!pcb->preempted) {
         os->avg_ArrivalTime += os->timer;
-        printf("\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n\n", os->avg_ArrivalTime);
+        printf("\n\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n", os->avg_ArrivalTime);
     }
+    os->avg_WaitingTime += os->timer - pcb->entry_time;
+    printf("\t\t*** TOTAL WAITING TIME until now: %.2f ***\n\n", os->avg_WaitingTime);
     
     pcb->preempted = 0;
         
@@ -134,7 +180,7 @@ void schedSJF_np(FakeOS* os, int cpu, void* args_){
         return;
     }
     
-    //take the first process in ready as the shortest job and check that it is going to CPU
+    //find the shortest job in ready
     FakePCB* shortest_process = Sched_findShortestJob(os, 0);
     
     List_detach(&os->ready, (ListItem*) shortest_process);
@@ -142,7 +188,9 @@ void schedSJF_np(FakeOS* os, int cpu, void* args_){
     printf("\n\t\tTaking the shortest ready process: %d\n", shortest_process->pid);
     
     os->avg_ArrivalTime += os->timer;
-    printf("\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n\n", os->avg_ArrivalTime);
+    os->avg_WaitingTime += os->timer - shortest_process->entry_time;
+    printf("\n\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n", os->avg_ArrivalTime);
+    printf("\t\t*** TOTAL WAITING TIME until now: %.2f ***\n\n", os->avg_WaitingTime);
 };
 
 
@@ -156,7 +204,7 @@ void schedSRJF(FakeOS* os, int cpu, void* args_){
         return;
     }
     
-    //take the first process in ready as the shortest job and check that it is going to CPU
+    //find the shortest job in ready
     FakePCB* shortest_process = Sched_findShortestJob(os, 0);
     ProcessEvent* short_e = (ProcessEvent*)shortest_process->events.first;
     
@@ -168,6 +216,7 @@ void schedSRJF(FakeOS* os, int cpu, void* args_){
         
         printf("\t\tPreempting the current running process: [pid=%d duration=%d]", os->running[cpu]->pid, running_e->duration);
         os->running[cpu]->preempted = 1;
+        os->running[cpu]->entry_time = os->timer;
         List_pushFront(&os->ready, (ListItem*) os->running[cpu]);
     }
     
@@ -177,8 +226,11 @@ void schedSRJF(FakeOS* os, int cpu, void* args_){
     
     if (!shortest_process->preempted) {
         os->avg_ArrivalTime += os->timer;
-        printf("\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n\n", os->avg_ArrivalTime);
+        printf("\n\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n", os->avg_ArrivalTime);
     }
+    
+    os->avg_WaitingTime += os->timer - shortest_process->entry_time;
+    printf("\t\t*** TOTAL WAITING TIME until now: %.2f ***\n\n", os->avg_WaitingTime);
     
     shortest_process->preempted = 0;
 };
@@ -194,7 +246,7 @@ void schedSJF_BP(FakeOS* os, int cpu, void* args_){
         return;
     }
     
-    //take the first process in ready as the shortest job and check that it is going to CPU
+    //find the shortest job in ready
     FakePCB* shortest_process = Sched_findShortestJob(os, 1);
     float shortest_burst = shortest_process->next_burst;
     
@@ -208,6 +260,7 @@ void schedSJF_BP(FakeOS* os, int cpu, void* args_){
 
         printf("\t\tPreempting the current running process: [pid=%d duration=%d pred=%.2f]", os->running[cpu]->pid, running_e->duration, os->running[cpu]->next_burst);
         os->running[cpu]->preempted = 1;
+        os->running[cpu]->entry_time = os->timer;
         List_pushFront(&os->ready, (ListItem*) os->running[cpu]);
     }
     
@@ -217,14 +270,17 @@ void schedSJF_BP(FakeOS* os, int cpu, void* args_){
     
     if (!shortest_process->preempted) {
         os->avg_ArrivalTime += os->timer;
-        printf("\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n\n", os->avg_ArrivalTime);
+        printf("\n\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n", os->avg_ArrivalTime);
     }
+    
+    os->avg_WaitingTime += os->timer - shortest_process->entry_time;
+    printf("\t\t*** TOTAL WAITING TIME until now: %.2f ***\n\n", os->avg_WaitingTime);
     
     shortest_process->preempted = 0;
 };
 
 
-//***** Preemptive Shortest Job First Scheduler w/Quantum Prediction for the next given CPU time quantum *****
+//***** Preemptive Shortest Job First Scheduler w/Quantum Prediction for the next given CPU time quantum (chooses based on shortest TQ) *****
 void schedSJF_QP(FakeOS* os, int cpu, void* args_){
     
     if (os->running[cpu]) return;
@@ -236,7 +292,7 @@ void schedSJF_QP(FakeOS* os, int cpu, void* args_){
         return;
     }
     
-    //take the first process in ready as the shortest job and check that it is going to CPU
+    //find the shortest job in ready
     FakePCB* shortest_process = Sched_findShortestJob(os, 1);
     ProcessEvent* short_e = (ProcessEvent*)shortest_process->events.first;
     
@@ -249,9 +305,59 @@ void schedSJF_QP(FakeOS* os, int cpu, void* args_){
         printf("\t\tResuming a previously preempted process: [pid=%d duration=%d pred=%.2f]\n", shortest_process->pid, short_e->duration, shortest_process->next_burst);
     }
     
+    os->avg_WaitingTime += os->timer - shortest_process->entry_time;
+    printf("\t\t*** TOTAL WAITING TIME until now: %.2f ***\n\n", os->avg_WaitingTime);
+    
     shortest_process->preempted = 0;
     
-    short_e = (ProcessEvent*)shortest_process->events.first;
+    // look at the first event
+    // if duration>quantum
+    // push front in the list of event a CPU event of duration quantum
+    // alter the duration of the old event subtracting quantum
+    if (short_e->duration > round(shortest_process->next_burst)) {
+        shortest_process->preempted = 1;
+        ProcessEvent* qe = (ProcessEvent*)malloc(sizeof(ProcessEvent));
+        qe->list.prev = qe->list.next=0;
+        qe->type = CPU;
+        qe->duration = round(shortest_process->next_burst);
+        short_e->duration -= round(shortest_process->next_burst);
+        List_pushFront(&shortest_process->events, (ListItem*)qe);
+    }
+    
+    List_detach(&os->ready, (ListItem*) shortest_process);
+    os->running[cpu]=shortest_process;
+};
+
+//***** Preemptive Shortest Job First Scheduler w/Quantum Prediction for the next given CPU time quantum (chooses based on shortest actual remaining time) *****
+void schedSRJF_QP(FakeOS* os, int cpu, void* args_){
+    
+    if (os->running[cpu]) return;
+
+    // look for the first process in ready
+    // if none, return
+    if (! os->ready.first) {
+        printf("\n\t\tNo process found in ready!\n");
+        return;
+    }
+    
+    //find the shortest job in ready
+    FakePCB* shortest_process = Sched_findShortestJob(os, 0);
+    ProcessEvent* short_e = (ProcessEvent*)shortest_process->events.first;
+    
+    if (!shortest_process->preempted) {
+        printf("\n\t\tTaking the shortest (predicted) ready process: %d\n", shortest_process->pid);
+        os->avg_ArrivalTime += os->timer;
+        printf("\n\t\t*** TOTAL ARRIVAL TIME until now: %.2f ***\n\n", os->avg_ArrivalTime);
+    }
+    else {
+        printf("\n\t\tResuming a previously preempted process: [pid=%d duration=%d]\n\n", shortest_process->pid, short_e->duration);
+    }
+    
+    os->avg_WaitingTime += os->timer - shortest_process->entry_time;
+    printf("\t\t*** TOTAL WAITING TIME until now: %.2f ***\n\n", os->avg_WaitingTime);
+    
+    shortest_process->preempted = 0;
+    
     // look at the first event
     // if duration>quantum
     // push front in the list of event a CPU event of duration quantum
@@ -271,6 +377,7 @@ void schedSJF_QP(FakeOS* os, int cpu, void* args_){
 };
 
 
+
 //****************************************************************************
 //******************************* M A I N ************************************
 //****************************************************************************
@@ -280,7 +387,7 @@ int main(int argc, char** argv) {
     SchedRRArgs srr_args;
     srr_args.quantum=5;
     os.schedule_args=&srr_args;
-    os.schedule_fn=schedSJF_QP;
+    os.schedule_fn=SCHED_FN;
   
     for (int i=1; i<argc; ++i){
         FakeProcess new_process;
@@ -310,13 +417,16 @@ int main(int argc, char** argv) {
         FakeOS_simStep(&os);
         
         //for debugging
-        if (os.timer > 200) break;
+        //if (os.timer > 200) break;
     }
     
     if (os.avg_ArrivalTime > 0 && total_processes > 0) {
         printf("\n\n\tTotal arrival time: %.2f", os.avg_ArrivalTime);
         os.avg_ArrivalTime /= total_processes;
+        printf("\n\t*** AVERAGE ARRIVAL TIME (for %d processes): %.2f ***", total_processes, os.avg_ArrivalTime);
         
-        printf("\n\n\t*** AVERAGE ARRIVAL TIME (for %d processes): %.2f ***\n\n", total_processes, os.avg_ArrivalTime);
+        printf("\n\n\tTotal waiting time: %.2f", os.avg_WaitingTime);
+        os.avg_WaitingTime /= total_processes;
+        printf("\n\t*** AVERAGE WAITING TIME (for %d processes): %.2f ***\n\n", total_processes, os.avg_WaitingTime);
     }
 }

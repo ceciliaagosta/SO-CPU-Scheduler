@@ -6,7 +6,11 @@
 #endif
 
 #ifndef ALPHA
-#define ALPHA 0.5       //Value of alpha in burst/quantum prediction formula (i.e. Exponential Average)
+#define ALPHA 0.5      //Value of alpha in burst/quantum prediction formula (i.e. Exponential Average)
+#endif
+
+#ifndef SCHED_FN
+#define SCHED_FN schedSRJF_QP      //Scheduling function
 #endif
                         
 #pragma once
@@ -21,6 +25,7 @@ typedef struct {
     float next_burst;   //Predicted value for the next burst (or next time quantum, depends on scheduler)
     
     int preempted;      //True if the process has been preempted during its previous CPU burst
+    int entry_time;     //Time at which the process has entered the ready queue last time (used for calculating average waiting time)
 } FakePCB;
 
 struct FakeOS;
@@ -36,7 +41,8 @@ typedef struct FakeOS{
 
     ListHead processes;
     
-    float avg_ArrivalTime;  //Arrival Time accumulator for the processes (used to compute and store average at the end of the simulation)
+    float avg_ArrivalTime;      //Arrival Time accumulator for the processes (used to compute and store average at the end of the simulation)
+    float avg_WaitingTime;      //Waiting Time accumulator for the processes (used to compute and store average at the end of the simulation)
 } FakeOS;
 
 void FakeOS_init(FakeOS* os);       //Inizializza il FakeOS os (tutti i campi a 0 e le liste vuote)

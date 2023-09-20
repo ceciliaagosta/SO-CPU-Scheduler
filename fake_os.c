@@ -13,6 +13,7 @@ void FakeOS_init(FakeOS* os) {
     os->timer=0;
     os->schedule_fn=0;
     os->avg_ArrivalTime = 0;
+    os->avg_WaitingTime = 0;
 }
 
 void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
@@ -43,7 +44,9 @@ void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
     new_pcb->events=p->events;
     
     new_pcb->burst = 0;
+    new_pcb->next_burst = 5;
     new_pcb->preempted = 0;
+    new_pcb->entry_time = os->timer;
 
     assert(new_pcb->events.first && "process without events");
 
@@ -52,7 +55,6 @@ void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
     ProcessEvent* e=(ProcessEvent*)new_pcb->events.first;
     switch(e->type){
         case CPU:
-            new_pcb->next_burst = 5;
             List_pushBack(&os->ready, (ListItem*) new_pcb);
             break;
         case IO:
@@ -114,6 +116,7 @@ void FakeOS_simStep(FakeOS* os){
                 switch (e->type){
                     case CPU:
                         printf("\t\tmove to ready\n");
+                        pcb->entry_time = os->timer;
                         List_pushBack(&os->ready, (ListItem*) pcb);
                         break;
                     case IO:
@@ -160,6 +163,7 @@ void FakeOS_simStep(FakeOS* os){
                     switch (e->type){
                         case CPU:
                             printf("\t\tmove to ready\n");
+                            running->entry_time = os->timer;
                             List_pushBack(&os->ready, (ListItem*) running);
                             break;
                         case IO:
