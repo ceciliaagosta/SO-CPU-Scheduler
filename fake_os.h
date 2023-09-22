@@ -1,20 +1,12 @@
 #include "fake_process.h"
 #include "linked_list.h"
 
-#ifndef NUM_CPUS
-#define NUM_CPUS 2      //Number of CPUs available to the OS
-#endif
-
 #ifndef ALPHA
 #define ALPHA 0.5      //Value of alpha in burst/quantum prediction formula (i.e. Exponential Average)
 #endif
 
 #ifndef SCHED_FN
-#define SCHED_FN schedSRJF_QP      //Scheduling function
-#endif
-
-#ifndef DEFAULT_CORES
-#define DEFAULT_CORES 2
+#define SCHED_FN schedSJF_QP      //Scheduling function
 #endif
                         
 #pragma once
@@ -32,16 +24,10 @@ typedef struct {
     int entry_time;     //Time at which the process has entered the ready queue last time (used for calculating average waiting time)
 } FakePCB;
 
-typedef struct {
-    int NUM_CORES;
-    FakePCB* running[DEFAULT_CORES];
-} FakeCPU;
-
 struct FakeOS;
-typedef void (*ScheduleFn)(struct FakeOS* os, FakeCPU* cpu, int core, void* args);
+typedef void (*ScheduleFn)(struct FakeOS* os, int cpu, void* args);
 
 typedef struct FakeOS{
-    FakeCPU* cpus[NUM_CPUS];
     ListHead ready;
     ListHead waiting;
     int timer;
@@ -52,10 +38,13 @@ typedef struct FakeOS{
     
     float avg_ArrivalTime;      //Arrival Time accumulator for the processes (used to compute and store average at the end of the simulation)
     float avg_WaitingTime;      //Waiting Time accumulator for the processes (used to compute and store average at the end of the simulation)
+    
+    int num_cpus;
+    FakePCB** running;
 } FakeOS;
 
-void FakeOS_init(FakeOS* os);       //Inizializza il FakeOS os (tutti i campi a 0 e le liste vuote)
+void FakeOS_init(FakeOS* os, int num_cpus);       //Inizializza il FakeOS os (tutti i campi a 0 e le liste vuote)
 
-void FakeOS_simStep(FakeOS* os);    //Simula la creazione e scheduling di processi in un SO, avanzando la simulazione un passo alla volta
+void FakeOS_simStep(FakeOS* os, int num_cpus);    //Simula la creazione e scheduling di processi in un SO, avanzando la simulazione un passo alla volta
 
 void FakeOS_destroy(FakeOS* os);    //Vuota. Dovrebbe eliminare le strutture del falso SO (?), ma non è stata scritta

@@ -25,9 +25,9 @@ void printReadyQueue(FakeOS* os) {
 }
 
 //***** First Come First Serve scheduler *****
-void schedFCFS(FakeOS* os, FakeCPU* cpu, int core, void* args_){
+void schedFCFS(FakeOS* os, int cpu, void* args_){
     
-    if (cpu->running[core]) return;
+    if (os->running[cpu]) return;
 
         // look for the first process in ready
         // if none, return
@@ -39,7 +39,7 @@ void schedFCFS(FakeOS* os, FakeCPU* cpu, int core, void* args_){
     printReadyQueue(os);
 
     FakePCB* pcb=(FakePCB*) List_popFront(&os->ready);
-    cpu->running[core]=pcb;
+    os->running[cpu]=pcb;
     assert(pcb->events.first);
     
     ProcessEvent* e = (ProcessEvent*)pcb->events.first;
@@ -52,11 +52,10 @@ void schedFCFS(FakeOS* os, FakeCPU* cpu, int core, void* args_){
     printf("\t\t*** TOTAL WAITING TIME until now: %.2f ***\n\n", os->avg_WaitingTime);
 };
 
-
 //***** Round Robin scheduler with Quantum based preemption *****
-void schedRR(FakeOS* os, FakeCPU* cpu, int core, void* args_){
+void schedRR(FakeOS* os, int cpu, void* args_){
     
-    if (cpu->running[core]) return;
+    if (os->running[cpu]) return;
     
     SchedRRArgs* args=(SchedRRArgs*)args_;
 
@@ -70,7 +69,7 @@ void schedRR(FakeOS* os, FakeCPU* cpu, int core, void* args_){
     printReadyQueue(os);
 
     FakePCB* pcb=(FakePCB*) List_popFront(&os->ready);
-    cpu->running[core]=pcb;
+    os->running[cpu]=pcb;
     assert(pcb->events.first);
     
     ProcessEvent* e = (ProcessEvent*)pcb->events.first;
@@ -114,7 +113,7 @@ FakePCB* Sched_findShortestJob(FakeOS* os, int prediction) {
         //take the first process in ready as the shortest job and check that it is going to CPU
         float shortest_burst = shortest_process->next_burst;
         
-        printf("\tReady queue: [pid=%d duration=%d pred=%.2f]", shortest_process->pid, short_e->duration, shortest_burst);
+        printf("Ready queue: [pid=%d duration=%d pred=%.2f]", shortest_process->pid, short_e->duration, shortest_burst);
         
         //now we look for the actual shortest process through the whole ready queue, based on our next burst prediction
         ListItem* aux = os->ready.first->next;
@@ -141,7 +140,7 @@ FakePCB* Sched_findShortestJob(FakeOS* os, int prediction) {
     else {
         int short_duration = short_e->duration;
         
-        printf("\tReady queue: [pid=%d duration=%d]", shortest_process->pid, short_e->duration);
+        printf("Ready queue: [pid=%d duration=%d]", shortest_process->pid, short_e->duration);
         
         //now we look for the actual shortest process through the whole ready queue
         ListItem* aux = os->ready.first->next;
@@ -170,9 +169,9 @@ FakePCB* Sched_findShortestJob(FakeOS* os, int prediction) {
 
 
 //***** Non-preemptive Shortest Job First Scheduler *****
-void schedSJF_np(FakeOS* os, FakeCPU* cpu, int core, void* args_){
+void schedSJF_np(FakeOS* os, int cpu, void* args_){
     
-    if (cpu->running[core]) return;
+    if (os->running[cpu]) return;
 
     // look for the first process in ready
     // if none, return
@@ -185,7 +184,7 @@ void schedSJF_np(FakeOS* os, FakeCPU* cpu, int core, void* args_){
     FakePCB* shortest_process = Sched_findShortestJob(os, 0);
     
     List_detach(&os->ready, (ListItem*) shortest_process);
-    cpu->running[core]=shortest_process;
+    os->running[cpu]=shortest_process;
     printf("\n\t\tTaking the shortest ready process: %d\n", shortest_process->pid);
     
     os->avg_ArrivalTime += os->timer;
@@ -196,7 +195,7 @@ void schedSJF_np(FakeOS* os, FakeCPU* cpu, int core, void* args_){
 
 
 //***** Preemptive Shortest Job First Scheduler (Shortest Remaining Job First) *****
-void schedSRJF(FakeOS* os, FakeCPU* cpu, int core, void* args_){
+void schedSRJF(FakeOS* os, int cpu, void* args_){
 
     // look for the first process in ready
     // if none, return
@@ -210,19 +209,19 @@ void schedSRJF(FakeOS* os, FakeCPU* cpu, int core, void* args_){
     ProcessEvent* short_e = (ProcessEvent*)shortest_process->events.first;
     
     //check if something is running on the current CPU
-    if (cpu->running[core]) {
-        ProcessEvent* running_e = (ProcessEvent*) cpu->running[core]->events.first;
+    if (os->running[cpu]) {
+        ProcessEvent* running_e = (ProcessEvent*) os->running[cpu]->events.first;
         //if the process running is shorter than the shortest process in ready, there is no need to switch
         if (running_e->duration <= short_e->duration) return;
         
-        printf("\t\tPreempting the current running process: [pid=%d duration=%d]", cpu->running[core]->pid, running_e->duration);
-        cpu->running[core]->preempted = 1;
-        cpu->running[core]->entry_time = os->timer;
-        List_pushFront(&os->ready, (ListItem*) cpu->running[core]);
+        printf("\t\tPreempting the current running process: [pid=%d duration=%d]", os->running[cpu]->pid, running_e->duration);
+        os->running[cpu]->preempted = 1;
+        os->running[cpu]->entry_time = os->timer;
+        List_pushFront(&os->ready, (ListItem*) os->running[cpu]);
     }
     
     List_detach(&os->ready, (ListItem*) shortest_process);
-    cpu->running[core]=shortest_process;
+    os->running[cpu]=shortest_process;
     printf("\n\t\tTaking the shortest ready process: %d\n", shortest_process->pid);
     
     if (!shortest_process->preempted) {
@@ -238,7 +237,7 @@ void schedSRJF(FakeOS* os, FakeCPU* cpu, int core, void* args_){
 
 
 //***** Preemptive Shortest Job First Scheduler w/Burst Prediction for the next burst *****
-void schedSJF_BP(FakeOS* os, FakeCPU* cpu, int core, void* args_){
+void schedSJF_BP(FakeOS* os, int cpu, void* args_){
 
     // look for the first process in ready
     // if none, return
@@ -252,21 +251,21 @@ void schedSJF_BP(FakeOS* os, FakeCPU* cpu, int core, void* args_){
     float shortest_burst = shortest_process->next_burst;
     
     //check if something is running on the current CPU
-    if (cpu->running[core]) {
-        ProcessEvent* running_e = (ProcessEvent*) cpu->running[core]->events.first;
+    if (os->running[cpu]) {
+        ProcessEvent* running_e = (ProcessEvent*) os->running[cpu]->events.first;
         //if the process running is shorter than the shortest process in ready, there is no need to switch
-        if (cpu->running[core]->next_burst <= shortest_burst) return;
+        if (os->running[cpu]->next_burst <= shortest_burst) return;
         
-        cpu->running[core]->next_burst = cpu->running[core]->next_burst * (1-ALPHA) + cpu->running[core]->burst * ALPHA;
+        os->running[cpu]->next_burst = os->running[cpu]->next_burst * (1-ALPHA) + os->running[cpu]->burst * ALPHA;
 
-        printf("\t\tPreempting the current running process: [pid=%d duration=%d pred=%.2f]", cpu->running[core]->pid, running_e->duration, cpu->running[core]->next_burst);
-        cpu->running[core]->preempted = 1;
-        cpu->running[core]->entry_time = os->timer;
-        List_pushFront(&os->ready, (ListItem*) cpu->running[core]);
+        printf("\t\tPreempting the current running process: [pid=%d duration=%d pred=%.2f]", os->running[cpu]->pid, running_e->duration, os->running[cpu]->next_burst);
+        os->running[cpu]->preempted = 1;
+        os->running[cpu]->entry_time = os->timer;
+        List_pushFront(&os->ready, (ListItem*) os->running[cpu]);
     }
     
     List_detach(&os->ready, (ListItem*) shortest_process);
-    cpu->running[core]=shortest_process;
+    os->running[cpu]=shortest_process;
     printf("\n\t\tTaking the shortest (predicted) ready process: %d\n", shortest_process->pid);
     
     if (!shortest_process->preempted) {
@@ -282,9 +281,9 @@ void schedSJF_BP(FakeOS* os, FakeCPU* cpu, int core, void* args_){
 
 
 //***** Preemptive Shortest Job First Scheduler w/Quantum Prediction for the next given CPU time quantum (chooses based on shortest TQ) *****
-void schedSJF_QP(FakeOS* os, FakeCPU* cpu, int core, void* args_){
+void schedSJF_QP(FakeOS* os, int cpu, void* args_){
     
-    if (cpu->running[core]) return;
+    if (os->running[cpu]) return;
 
     // look for the first process in ready
     // if none, return
@@ -326,13 +325,13 @@ void schedSJF_QP(FakeOS* os, FakeCPU* cpu, int core, void* args_){
     }
     
     List_detach(&os->ready, (ListItem*) shortest_process);
-    cpu->running[core]=shortest_process;
+    os->running[cpu]=shortest_process;
 };
 
 //***** Preemptive Shortest Job First Scheduler w/Quantum Prediction for the next given CPU time quantum (chooses based on shortest actual remaining time) *****
-void schedSRJF_QP(FakeOS* os, FakeCPU* cpu, int core, void* args_){
+void schedSRJF_QP(FakeOS* os, int cpu, void* args_){
     
-    if (cpu->running[core]) return;
+    if (os->running[cpu]) return;
 
     // look for the first process in ready
     // if none, return
@@ -374,7 +373,7 @@ void schedSRJF_QP(FakeOS* os, FakeCPU* cpu, int core, void* args_){
     }
     
     List_detach(&os->ready, (ListItem*) shortest_process);
-    cpu->running[core]=shortest_process;
+    os->running[cpu]=shortest_process;
 };
 
 
@@ -384,13 +383,14 @@ void schedSRJF_QP(FakeOS* os, FakeCPU* cpu, int core, void* args_){
 //****************************************************************************
 
 int main(int argc, char** argv) {
-    FakeOS_init(&os);
+    int num_cpus = atoi(argv[1]);
+    FakeOS_init(&os, num_cpus);
     SchedRRArgs srr_args;
     srr_args.quantum=5;
     os.schedule_args=&srr_args;
     os.schedule_fn=SCHED_FN;
-  
-    for (int i=1; i<argc; ++i){
+    
+    for (int i=2; i<argc; ++i){
         FakeProcess new_process;
         int num_events=FakeProcess_load(&new_process, argv[i]);
         printf("loading [%s], pid: %d, events: %d\n",
@@ -407,20 +407,15 @@ int main(int argc, char** argv) {
     
     while(1){
         int running_cpus = 0;
-        for (int cpu=0; cpu<NUM_CPUS; ++cpu) {
-            FakeCPU* curr_cpu = os.cpus[cpu];
-            for (int core=0; core<curr_cpu->NUM_CORES; ++core){
-                //printf("Accesso a CPU %d CORE %d\n", cpu, core);
-                if (curr_cpu->running[core]) {
-                    running_cpus = 1;
-                    break;
-                }
+        for (int cpu=0; cpu<num_cpus; ++cpu) {
+            if (os.running[cpu]) {
+                running_cpus = 1;
+                break;
             }
-            if (running_cpus) break;
         }
         if (!running_cpus && !os.ready.first && !os.waiting.first && !os.processes.first) break;
         
-        FakeOS_simStep(&os);
+        FakeOS_simStep(&os, num_cpus);
         
         //for debugging
         //if (os.timer > 200) break;
