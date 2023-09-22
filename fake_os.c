@@ -4,9 +4,18 @@
 
 #include "fake_os.h"
 
+FakeCPU* FakeCPU_init(int cores) {
+    FakeCPU* CPU = (FakeCPU*) malloc(sizeof(FakeCPU));
+    CPU->NUM_CORES = cores;
+    for (int core=0; core < cores; ++core) {
+        CPU->running[core] = 0;
+    }
+    return CPU;
+}
+
 
 void FakeOS_init(FakeOS* os) {
-    for (int cpu=0; cpu < NUM_CPUS; ++cpu) os->running[cpu] = NULL;
+    for (int cpu=0; cpu < NUM_CPUS; ++cpu) os->cpus[cpu] = FakeCPU_init(DEFAULT_CORES);
     List_init(&os->ready);
     List_init(&os->waiting);
     List_init(&os->processes);
@@ -21,7 +30,12 @@ void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
     assert(p->arrival_time==os->timer && "time mismatch in creation");
     // we check that in the list of PCBs there is no
     // pcb having the same pid
-    for (int cpu=0; cpu < NUM_CPUS; ++cpu) assert( (!os->running[cpu] || os->running[cpu]->pid!=p->pid) && "pid taken");
+    for (int cpu=0; cpu < NUM_CPUS; ++cpu) {
+        FakeCPU* curr_cpu = os->cpus[cpu];
+        for (int core=0; core<curr_cpu->NUM_CORES; ++core) {
+            assert( (!curr_cpu->running[core] || curr_cpu->running[core]->pid!=p->pid) && "pid taken");
+        }
+    }
 
     ListItem* aux=os->ready.first;
     while(aux){
@@ -136,67 +150,72 @@ void FakeOS_simStep(FakeOS* os){
     // if last event, destroy running
     for (int cpu=0; cpu < NUM_CPUS; ++cpu) {
         printf("CPU: %d\n", cpu);
-        FakePCB* running = os->running[cpu];
-        printf("\trunning pid: %d\n", running?running->pid:-1);
-        if (running) {
-            ProcessEvent* e=(ProcessEvent*) running->events.first;
-            assert(e->type==CPU);
-            
-            e->duration--;
-            running->burst++;
-            printf("\t\tremaining time:%d\n",e->duration);
-            printf("\t\tpassed time:%d\n",running->burst);
-            if (e->duration==0){
-                printf("\t\tend burst\n");
-                List_popFront(&running->events);
-                free(e);
-                if (! running->events.first) {
-                    printf("\t\tend process\n");
-                    running->next_burst = 0;
-                    free(running); // kill process
-                } else {
-                    //printf("\t\tprevious prediction: %.2f\n", running->next_burst);
-                    running->next_burst = running->next_burst * (1-ALPHA) + running->burst * ALPHA;
-                    //printf("\t\tnext burst: %.2f\n", running->next_burst);
-                    
-                    e=(ProcessEvent*) running->events.first;
-                    switch (e->type){
-                        case CPU:
-                            printf("\t\tmove to ready\n");
-                            running->entry_time = os->timer;
-                            List_pushBack(&os->ready, (ListItem*) running);
-                            break;
-                        case IO:
-                            printf("\t\tmove to waiting\n");
-                            List_pushBack(&os->waiting, (ListItem*) running);
-                            break;
+        FakeCPU* curr_cpu = os->cpus[cpu];
+        //printf("Num_cores: %d\n", curr_cpu->NUM_CORES);
+        for (int core=0; core<curr_cpu->NUM_CORES; ++core) {
+            printf("\tCore: %d\n", core);
+            FakePCB* running = curr_cpu->running[core];
+            printf("\trunning pid: %d\n", running?running->pid:-1);
+            if (running) {
+                ProcessEvent* e=(ProcessEvent*) running->events.first;
+                assert(e->type==CPU);
+                
+                e->duration--;
+                running->burst++;
+                printf("\t\tremaining time:%d\n",e->duration);
+                printf("\t\tpassed time:%d\n",running->burst);
+                if (e->duration==0){
+                    printf("\t\tend burst\n");
+                    List_popFront(&running->events);
+                    free(e);
+                    if (! running->events.first) {
+                        printf("\t\tend process\n");
+                        running->next_burst = 0;
+                        free(running); // kill process
+                    } else {
+                        //printf("\t\tprevious prediction: %.2f\n", running->next_burst);
+                        running->next_burst = running->next_burst * (1-ALPHA) + running->burst * ALPHA;
+                        //printf("\t\tnext burst: %.2f\n", running->next_burst);
+                        
+                        e=(ProcessEvent*) running->events.first;
+                        switch (e->type){
+                            case CPU:
+                                printf("\t\tmove to ready\n");
+                                running->entry_time = os->timer;
+                                List_pushBack(&os->ready, (ListItem*) running);
+                                break;
+                            case IO:
+                                printf("\t\tmove to waiting\n");
+                                List_pushBack(&os->waiting, (ListItem*) running);
+                                break;
+                        }
                     }
+                    if (!running->preempted) running->burst = 0;
+                    curr_cpu->running[core] = 0;
                 }
-                if (!running->preempted) running->burst = 0;
-                os->running[cpu] = 0;
             }
-        }
-        
-        int available_cpu = 0;
-        for (int i=cpu+1; i<NUM_CPUS; ++i){
-            if (os->running[cpu] && !os->running[i]){
-                printf("\t\t\t|||Another CPU is available. Skipping scheduling!|||\n");
-                available_cpu = 1;
-                break;
+            
+            int available_core = 0;
+            for (int i=core+1; i<curr_cpu->NUM_CORES; ++i){
+                if (curr_cpu->running[core] && !curr_cpu->running[i]){
+                    printf("\t\t\t|||Another core is available. Skipping scheduling!|||\n");
+                    available_core = 1;
+                    break;
+                }
             }
-        }
-        if(available_cpu) continue;
-        
-        // call scheduler, if defined
-        if (os->schedule_fn){
-            //printf("Calling the scheduler:\n");
-            (*os->schedule_fn)(os, cpu, os->schedule_args);
-        }
-        
-        // if scheduler not defined and ready queue not empty
-        // put the first in ready to run
-        if (! os->running[cpu] && os->ready.first) {
-            os->running[cpu]=(FakePCB*) List_popFront(&os->ready);
+            if(available_core) continue;
+            
+            // call scheduler, if defined
+            if (os->schedule_fn){
+                //printf("Calling the scheduler:\n");
+                (*os->schedule_fn)(os, curr_cpu, core, os->schedule_args);
+            }
+            
+            // if scheduler not defined and ready queue not empty
+            // put the first in ready to run
+            if (! curr_cpu->running[core] && os->ready.first) {
+                curr_cpu->running[core]=(FakePCB*) List_popFront(&os->ready);
+            }
         }
     }
         

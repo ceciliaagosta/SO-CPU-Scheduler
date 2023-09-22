@@ -2,7 +2,7 @@
 #include "linked_list.h"
 
 #ifndef NUM_CPUS
-#define NUM_CPUS 4      //Number of CPUs available to the OS
+#define NUM_CPUS 2      //Number of CPUs available to the OS
 #endif
 
 #ifndef ALPHA
@@ -11,6 +11,10 @@
 
 #ifndef SCHED_FN
 #define SCHED_FN schedSRJF_QP      //Scheduling function
+#endif
+
+#ifndef DEFAULT_CORES
+#define DEFAULT_CORES 2
 #endif
                         
 #pragma once
@@ -28,11 +32,16 @@ typedef struct {
     int entry_time;     //Time at which the process has entered the ready queue last time (used for calculating average waiting time)
 } FakePCB;
 
+typedef struct {
+    int NUM_CORES;
+    FakePCB* running[DEFAULT_CORES];
+} FakeCPU;
+
 struct FakeOS;
-typedef void (*ScheduleFn)(struct FakeOS* os, int cpu, void* args);
+typedef void (*ScheduleFn)(struct FakeOS* os, FakeCPU* cpu, int core, void* args);
 
 typedef struct FakeOS{
-    FakePCB* running[NUM_CPUS];
+    FakeCPU* cpus[NUM_CPUS];
     ListHead ready;
     ListHead waiting;
     int timer;
