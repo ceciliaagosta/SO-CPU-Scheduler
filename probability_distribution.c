@@ -27,7 +27,8 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
     f=fopen(filename, "r");
     
     h->max_duration = max_duration;
-    h->probs = (float*) malloc((h->max_duration + 1) * sizeof(float));
+    h->CPUprobs = (float*) malloc((h->max_duration + 1) * sizeof(float));
+    h->IOprobs = (float*) malloc((h->max_duration + 1) * sizeof(float));
         
     while (getline(&buffer, &line_length, f) > 0){
         // got line in buf
@@ -35,7 +36,11 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
         //Find the ResourceType (CPU=0, IO=1)
         num_tokens = sscanf(buffer, "TYPE %d", &type);
         //printf("%d %d\n", type, num_tokens);
-        if (num_tokens == 1 && h->type < 0) {
+        if (num_tokens == 1) {
+            if (type > 1) {
+                printf("Found wrong type (CPU or IO) in %s. Please check the file.\n", filename);
+                return -1;
+            }
             h->type = type;
             goto next_round;
         }
@@ -44,7 +49,17 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
         num_tokens = sscanf(buffer, "%d %f", &duration, &probability);
         if (num_tokens == 2){
             if (probability <= 1) {
-                h->probs[duration] = probability;
+                //printf("%d\n", h->type);
+                switch(h->type) {
+                    case 0:
+                        //printf("CPU\n");
+                        h->CPUprobs[duration] = probability;
+                    case 1:
+                        //printf("IO\n");
+                        h->IOprobs[duration] = probability;
+                    default:
+                        goto next_round;
+                }
                 goto next_round;
             }
             else {
@@ -59,5 +74,5 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
     }
     if (buffer) free(buffer);
     fclose(f);
-    return h->type;
+    return 1;
 }
