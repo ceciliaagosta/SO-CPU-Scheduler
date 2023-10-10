@@ -23,8 +23,10 @@ int main(int argc, char** argv) {
         exit(-1);
     }
     
-    int check = ProbDist_check(&h);
-    printf("Probability check: %d\n", check);
+    int checkCPU = ProbDist_checkCPU(&h);
+    int checkIO = ProbDist_checkIO(&h);
+    printf("Probability check for CPU: %d\n", checkCPU);
+    printf("Probability check for IO: %d\n", checkIO);
     
     return 0;
 }

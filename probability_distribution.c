@@ -108,13 +108,10 @@ int ProbDist_save(const ProbHistogram* h, const char* filename){
     return 1;
 }
 
-//Checks the sum of probabilities for both CPU and IO bursts
-int ProbDist_check(const ProbHistogram* h) {
+// Checks sum of probabilities for CPU histogram. Returns 1 if it's 1, -1 if less than 1,or more than 1, 0 if the sum is 0
+int ProbDist_checkCPU(const ProbHistogram* h) {
     double CPUsum = 0;
-    double IOsum = 0;
-    
     double* CPUprobs = h->CPUprobs;
-    double* IOprobs = h->IOprobs;
     
     for (int i=1; i<h->max_duration+1; i++) {
         
@@ -125,6 +122,25 @@ int ProbDist_check(const ProbHistogram* h) {
             printf("CPUsum = %.2f > 0\n", CPUsum);
             return -1;
         }
+    }
+    
+    // if sum of probabilities for CPU bursts is less than 1 but not zero (uninitialized array), returns -1
+    if (CPUsum < 1 && CPUsum != 0) return -1;
+    
+    // if sum of probabilities for CPU bursts is zero (uninitialized array), returns 0
+    if (CPUsum == 0) return 0;
+    
+    // if sum of probabilities for CPU bursts is 1, returns 1
+    return 1;
+}
+
+// Checks sum of probabilities for IO histogram. Returns 1 if it's 1, -1 if less than 1,or more than 1, 0 if the sum is 0
+int ProbDist_checkIO(const ProbHistogram* h) {
+    
+    double IOsum = 0;
+    double* IOprobs = h->IOprobs;
+    
+    for (int i=1; i<h->max_duration+1; i++) {
         
         IOsum += IOprobs[i];
         //printf("IOsum = %.2f\n", IOsum);
@@ -135,9 +151,12 @@ int ProbDist_check(const ProbHistogram* h) {
         }
     }
     
-    // if sum of probabilities for CPU or IO bursts is less than 1 but not zero (uninitialized array), returns 0
-    if ((CPUsum < 1 && CPUsum != 0) || (IOsum < 1 && IOsum != 0)) return 0;
+    // if sum of probabilities for IO bursts is less than 1 but not zero (uninitialized array), returns -1
+    if (IOsum < 1 && IOsum != 0) return -1;
     
-    // if sum of probabilities for CPU and IO bursts is 1, returns 1
+    // if sum of probabilities for IO bursts is zero (uninitialized array), returns 0
+    if (IOsum == 0) return 0;
+    
+    // if sum of probabilities for IO bursts is 1, returns 1
     return 1;
 }

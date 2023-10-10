@@ -14,4 +14,5 @@ int ProbDist_load(ProbHistogram* h, const char* filename);  //Loads the ProbHist
 
 int ProbDist_save(const ProbHistogram* h, const char* filename);  //Saves the probability distributions in h to a File 'filename'; returns 1 if everything went well,                                                                   -1 if there was an error.
 
-int ProbDist_check(const ProbHistogram* h);                 //Checks whether the sum of probabilities is equal to 1 and returns 1 if true; 0 if < 1, -1 if > 1.
+int ProbDist_checkCPU(const ProbHistogram* h);                 //Checks whether the sum of probabilities is equal to 1 and returns 1 if true; -1 if < 1 or > 1, 0 if 0.
+int ProbDist_checkIO(const ProbHistogram* h);
