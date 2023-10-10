@@ -42,6 +42,11 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
                 return -1;
             }
             h->type = type;
+            
+            if (h->type == 0) h->CPUprobs[0] = 1;
+            else if (h->type == 1) h->IOprobs[0] = 1;
+            
+            //printf("Current type: %s\n", h->type==0 ? "CPU" : "IO");
             goto next_round;
         }
         
@@ -54,9 +59,11 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
                     case 0:
                         //printf("CPU\n");
                         h->CPUprobs[duration] = probability;
+                        goto next_round;
                     case 1:
                         //printf("IO\n");
                         h->IOprobs[duration] = probability;
+                        goto next_round;
                     default:
                         goto next_round;
                 }
@@ -69,6 +76,7 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
             
         }
         next_round:
+            //printf("NEXT ROUND!\n");
             //printf("%stokens: %d\n", buffer, num_tokens);
         ;
     }
@@ -76,3 +84,27 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
     fclose(f);
     return 1;
 }
+
+int ProbDist_save(const ProbHistogram* h, const char* filename){
+    FILE* f=fopen(filename, "w");
+    if (! f) return -1;
+    
+    if (h->CPUprobs[0]) {
+        fprintf(f, "TYPE %d\n", 0);
+        for (int i=1; i<h->max_duration+1; i++) {
+            if (h->CPUprobs[i]) fprintf(f, "%d %.2f\n", i, h->CPUprobs[i]);
+        }
+        printf("\n");
+    }
+    
+    if (h->IOprobs[0]) {
+        fprintf(f, "TYPE %d\n", 1);
+        for (int i=1; i<h->max_duration+1; i++) {
+            if (h->IOprobs[i]) fprintf(f, "%d %.2f\n", i, h->IOprobs[i]);
+        }
+    }
+    
+    fclose(f);
+    return 1;
+}
+  
