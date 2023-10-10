@@ -15,20 +15,20 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
     int num_tokens = 0;
     int duration = -1;
     int max_duration = -1;
-    float probability = -1;
+    double probability = -1;
     int type = -1;
     
     //Find the longest duration
     while (getline(&buffer, &line_length, f) > 0) {
-        sscanf(buffer, "%d %f", &duration, &probability);
+        sscanf(buffer, "%d %lf", &duration, &probability);
         if (duration > max_duration) max_duration = duration;
     }
-    fclose(f);
-    f=fopen(filename, "r");
+    
+    rewind(f);
     
     h->max_duration = max_duration;
-    h->CPUprobs = (float*) malloc((h->max_duration + 1) * sizeof(float));
-    h->IOprobs = (float*) malloc((h->max_duration + 1) * sizeof(float));
+    h->CPUprobs = (double*) malloc((h->max_duration + 1) * sizeof(double));
+    h->IOprobs = (double*) malloc((h->max_duration + 1) * sizeof(double));
         
     while (getline(&buffer, &line_length, f) > 0){
         // got line in buf
@@ -51,9 +51,9 @@ int ProbDist_load(ProbHistogram* h, const char* filename) {
         }
         
         //Find the durations and their respective probabilities
-        num_tokens = sscanf(buffer, "%d %f", &duration, &probability);
+        num_tokens = sscanf(buffer, "%d %lf", &duration, &probability);
         if (num_tokens == 2){
-            if (probability <= 1) {
+            if (duration > 0 && probability <= 1) {
                 //printf("%d\n", h->type);
                 switch(h->type) {
                     case 0:
@@ -94,7 +94,7 @@ int ProbDist_save(const ProbHistogram* h, const char* filename){
         for (int i=1; i<h->max_duration+1; i++) {
             if (h->CPUprobs[i]) fprintf(f, "%d %.2f\n", i, h->CPUprobs[i]);
         }
-        printf("\n");
+        fprintf(f, "\n");
     }
     
     if (h->IOprobs[0]) {
@@ -107,4 +107,37 @@ int ProbDist_save(const ProbHistogram* h, const char* filename){
     fclose(f);
     return 1;
 }
-  
+
+//Checks the sum of probabilities for both CPU and IO bursts
+int ProbDist_check(const ProbHistogram* h) {
+    double CPUsum = 0;
+    double IOsum = 0;
+    
+    double* CPUprobs = h->CPUprobs;
+    double* IOprobs = h->IOprobs;
+    
+    for (int i=1; i<h->max_duration+1; i++) {
+        
+        CPUsum += CPUprobs[i];
+        //printf("CPUsum = %.2f\n", CPUsum);
+        // if sum of probabilities for CPU bursts is bigger than 1, returns -1
+        if (CPUsum - 1 > 0) {
+            printf("CPUsum = %.2f > 0\n", CPUsum);
+            return -1;
+        }
+        
+        IOsum += IOprobs[i];
+        //printf("IOsum = %.2f\n", IOsum);
+        // if sum of probabilities for IO bursts is bigger than 1, returns -1
+        if (IOsum - 1 > 0) {
+            printf("IOsum = %.2f > 0\n", IOsum);
+            return -1;
+        }
+    }
+    
+    // if sum of probabilities for CPU or IO bursts is less than 1 but not zero (uninitialized array), returns 0
+    if ((CPUsum < 1 && CPUsum != 0) || (IOsum < 1 && IOsum != 0)) return 0;
+    
+    // if sum of probabilities for CPU and IO bursts is 1, returns 1
+    return 1;
+}

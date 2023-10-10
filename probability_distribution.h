@@ -6,10 +6,12 @@
 typedef struct {
     int type;               // CPU=0; IO=1
     int max_duration;       // Max duration registered for the file (must be +1 in array cycles because slot 0 does not count)
-    float* CPUprobs;        // Histogram of CPU burst durations' probabilities
-    float* IOprobs;         // Histogram of IO burst durations' probabilities
+    double* CPUprobs;        // Histogram of CPU burst durations' probabilities
+    double* IOprobs;         // Histogram of IO burst durations' probabilities
 } ProbHistogram;
 
 int ProbDist_load(ProbHistogram* h, const char* filename);  //Loads the ProbHistogram h with info taken from the File 'filename' and returns the                                                                                  ResourceType; returns 1 if everything went well, -1 if there was an error.
 
 int ProbDist_save(const ProbHistogram* h, const char* filename);  //Saves the probability distributions in h to a File 'filename'; returns 1 if everything went well,                                                                   -1 if there was an error.
+
+int ProbDist_check(const ProbHistogram* h);                 //Checks whether the sum of probabilities is equal to 1 and returns 1 if true; 0 if < 1, -1 if > 1.

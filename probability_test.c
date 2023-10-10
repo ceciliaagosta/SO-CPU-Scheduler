@@ -17,9 +17,14 @@ int main(int argc, char** argv) {
         printf("IO  Duration: %d, Probability: %.2f\n", i, h.IOprobs[i]);
     }
     int save = ProbDist_save(&h, argv[2]);
+    printf("saved [%s]\n", argv[2]);
     if (save < 0) {
         printf("File was not saved.\n");
         exit(-1);
     }
+    
+    int check = ProbDist_check(&h);
+    printf("Probability check: %d\n", check);
+    
     return 0;
 }
