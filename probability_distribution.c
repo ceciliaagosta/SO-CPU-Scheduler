@@ -119,7 +119,7 @@ int ProbDist_checkCPU(const ProbHistogram* h) {
         //printf("CPUsum = %.2f\n", CPUsum);
         // if sum of probabilities for CPU bursts is bigger than 1, returns -1
         if (CPUsum - 1 > 0) {
-            printf("CPUsum = %.2f > 0\n", CPUsum);
+            //printf("CPUsum = %.2f > 0\n", CPUsum);
             return -1;
         }
     }
@@ -146,7 +146,7 @@ int ProbDist_checkIO(const ProbHistogram* h) {
         //printf("IOsum = %.2f\n", IOsum);
         // if sum of probabilities for IO bursts is bigger than 1, returns -1
         if (IOsum - 1 > 0) {
-            printf("IOsum = %.2f > 0\n", IOsum);
+            //printf("IOsum = %.2f > 0\n", IOsum);
             return -1;
         }
     }

@@ -1,9 +1,9 @@
-#include "probability_distribution.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "probability_distribution.h"
 
 int main(int argc, char** argv) {
-    if (argc<2){
+    if (argc<3){
         printf("usage %s <in> <out>\n", argv[0]);
         exit(-1);
     }
