@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 #include "probability_distribution.h"
 
 #define print_array(data, n) _Generic((*data), int: print_int, double: print_double)(data,n)
@@ -21,6 +22,42 @@ void print_double (const double* data, size_t n) {
 //Function to generate random numbers between 0 and 1, in a uniform distribution
 double unif_rand() {
     return (double) rand() / RAND_MAX;
+}
+
+//Function to compare percentages of duration of bursts with original probabilities from histogram h
+void compare_percentages(ProbHistogram* h, int* CPUbursts, int* IObursts, int max_duration, int CPUnum, int IOnum) {
+    
+    int* CPUcompare = (int*) malloc(max_duration * sizeof(int));
+    int* IOcompare = (int*) malloc(max_duration * sizeof(int));
+    for (int i=0; i<max_duration; i++) {
+        CPUcompare[i] = 0;
+        IOcompare[i] = 0;
+    }
+    
+    for (int i=0; i<CPUnum; i++) {
+        //printf("CPUbursts[%d]=%d\n", i, CPUbursts[i]);
+        CPUcompare[CPUbursts[i]]++;
+    }
+    for (int i=0; i<IOnum; i++) {
+        IOcompare[IObursts[i]]++;
+        //printf("IObursts[%d]=%d\n", i, IObursts[i]);
+    }
+    
+    //print_array(CPUcompare, max_duration);
+    //print_array(IOcompare, max_duration);
+    
+    for (int i=1; i<max_duration; i++) {
+        
+        float cpu = (float)CPUcompare[i] / CPUnum;
+        float io = (float)IOcompare[i] / IOnum;
+        
+        printf("Duration: %d --> CPU Percentage: %.3lf || CPU Probability: %.3lf\n", i, cpu, h->CPUprobs[i]);
+        printf("                IO Percentage:  %.3lf || IO Probability:  %.3lf\n\n", io, h->IOprobs[i]);
+    }
+    
+    //free allocated memory
+    free(CPUcompare);
+    free(IOcompare);
 }
 
 
@@ -88,22 +125,20 @@ void CDF_generator(ProbHistogram* h, int* CPUres, int* IOres, int n, int m) {
     
 }
 
-
+//Function to generate alias and acceptance table for Alias Method
 void Alias_generator(double* hist, int n, double* acceptance, int* alias) {
     
-    //Allocate and initialize the two tables for acceptance and alias
-    acceptance = (double*) malloc(sizeof(double) * n);
-    alias = (int*) malloc(sizeof(int) * n);
-    
+    //Initialize the two tables for acceptance and alias
     acceptance[0] = 0;
     alias[0] = 0;
     for (int i=1; i<n; i++) {
         acceptance[i] = hist[i] * (double)n;
-        printf("Acceptance[%d]: %.3lf ", i, acceptance[i]);
+        //printf("Acceptance[%d]: %.3lf ", i, acceptance[i]);
         if (acceptance[i] == 1) alias[i] = i;       //if the acceptance is 1, the alias is useless, can initialize as the index.
         else alias[i] = 0;
-        printf("Alias[%d]: %d\n", i, alias[i]);
+        //printf("Alias[%d]: %d\n", i, alias[i]);
     }
+    //printf("\n");
     
     int overfull, underfull;
     while (1) {
@@ -116,16 +151,53 @@ void Alias_generator(double* hist, int n, double* acceptance, int* alias) {
         
         if (overfull == -1 || underfull == -1) break;
         
-        printf("Overfull: %d   Underfull: %d\n", overfull, underfull);
+        //printf("Overfull: %d   Underfull: %d\n", overfull, underfull);
         
         alias[underfull] = overfull;
         acceptance[overfull] += acceptance[underfull] - 1;
     }
     
+    /*printf("Acceptance and Alias arrays: \n");
     print_array(acceptance, n);
     print_array(alias, n);
+    printf("\n");*/
 }
 
+//Function to sample from tables in Alias Method
+void Alias_sampler(double* acceptance, int* alias, int* res, int n, int samples) {
+    
+    for (int s=0; s<samples; s++) {
+        double random = unif_rand();
+        //printf("random: %.3lf  ", random);
+        
+        int i = (int)floor(n * random) + 1;
+        //printf("i: %d  ", i);
+        double y = n * random + 1 - i;
+        //printf("y: %.3lf  ", y);
+        
+        if (y <= acceptance[i]) res[s] = i;
+        else res[s] = alias[i];
+        
+        //printf("res[%d]: %d\n", s, res[s]);
+    }
+}
+
+//Alias Method
+int* Alias_function(double* hist, int n, int samples) {
+    
+    double* acceptance = (double*) malloc(sizeof(double) * n);
+    int* alias = (int*) malloc(sizeof(int) * n);
+    
+    Alias_generator(hist, n, acceptance, alias);
+    
+    int* res = (int*) malloc(samples * sizeof(int));
+    Alias_sampler(acceptance, alias, res, n-1, samples);
+    
+    free(acceptance);
+    free(alias);
+    
+    return res;
+}
 
 
 int main(int argc, char** argv) {
@@ -156,11 +228,9 @@ int main(int argc, char** argv) {
     for (int i=0; i<IOnum; i++) IObursts[i] = 0;
     
     
-    double* CPUacceptance;
-    int* CPUalias;
-    
     //call the sampler
-    Alias_generator(h.CPUprobs, max_duration, CPUacceptance, CPUalias);
+    int* CPUres = Alias_function(h.CPUprobs, max_duration, CPUnum);
+    int* IOres = Alias_function(h.IOprobs, max_duration, IOnum);
     
     CDF_generator(&h, CPUbursts, IObursts, CPUnum, IOnum);
     
@@ -171,40 +241,23 @@ int main(int argc, char** argv) {
     if (ProbDist_checkIO(&h) == 1) {
         printf("IObursts: ");
         print_array(IObursts, IOnum);
-    }*/
+    }
+    
+    printf("\nCPUres:  ");
+    print_array(CPUres, CPUnum);
+    printf("IOres: ");
+    print_array(IOres, IOnum);*/
     
     //compare extraction percentages with original probabilities
-    int* CPUcompare = (int*) malloc(max_duration * sizeof(int));
-    int* IOcompare = (int*) malloc(max_duration * sizeof(int));
-    for (int i=0; i<max_duration; i++) {
-        CPUcompare[i] = 0;
-        IOcompare[i] = 0;
-    }
+    printf("Comparison for CDF Method: \n");
+    compare_percentages(&h, CPUbursts, IObursts, max_duration, CPUnum, IOnum);
     
-    for (int i=1; i<CPUnum; i++) {
-        CPUcompare[CPUbursts[i]]++;
-    }
-    for (int i=1; i<IOnum; i++) {
-        IOcompare[IObursts[i]]++;
-    }
-    
-    //print_array(CPUcompare, max_duration);
-    //print_array(IOcompare, max_duration);
-    
-    for (int i=1; i<max_duration; i++) {
-        
-        float cpu = (float)CPUcompare[i] / CPUnum;
-        float io = (float)IOcompare[i] / IOnum;
-        
-        printf("Duration: %d --> CPU Percentage: %.3lf || CPU Probability: %.3lf\n", i, cpu, h.CPUprobs[i]);
-        printf("                IO Percentage:  %.3lf || IO Probability:  %.3lf\n\n", io, h.IOprobs[i]);
-    }
+    printf("\nComparison for Alias Method: \n");
+    compare_percentages(&h, CPUres, IOres, max_duration, CPUnum, IOnum);
     
     //free allocated memory
     free(CPUbursts);
     free(IObursts);
-    free(CPUcompare);
-    free(IOcompare);
     
     return 0;
 }
