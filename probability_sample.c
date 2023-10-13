@@ -88,6 +88,46 @@ void CDF_generator(ProbHistogram* h, int* CPUres, int* IOres, int n, int m) {
     
 }
 
+
+void Alias_generator(double* hist, int n, double* acceptance, int* alias) {
+    
+    //Allocate and initialize the two tables for acceptance and alias
+    acceptance = (double*) malloc(sizeof(double) * n);
+    alias = (int*) malloc(sizeof(int) * n);
+    
+    acceptance[0] = 0;
+    alias[0] = 0;
+    for (int i=1; i<n; i++) {
+        acceptance[i] = hist[i] * (double)n;
+        printf("Acceptance[%d]: %.3lf ", i, acceptance[i]);
+        if (acceptance[i] == 1) alias[i] = i;       //if the acceptance is 1, the alias is useless, can initialize as the index.
+        else alias[i] = 0;
+        printf("Alias[%d]: %d\n", i, alias[i]);
+    }
+    
+    int overfull, underfull;
+    while (1) {
+        overfull = -1;
+        underfull = -1;
+        for (int i=n-1; i>=0; i--) {
+            if (acceptance[i] > 1) overfull = i;
+            if (acceptance[i] < 1 && alias[i] == 0) underfull = i;
+        }
+        
+        if (overfull == -1 || underfull == -1) break;
+        
+        printf("Overfull: %d   Underfull: %d\n", overfull, underfull);
+        
+        alias[underfull] = overfull;
+        acceptance[overfull] += acceptance[underfull] - 1;
+    }
+    
+    print_array(acceptance, n);
+    print_array(alias, n);
+}
+
+
+
 int main(int argc, char** argv) {
     
     if (argc<5){
@@ -95,27 +135,32 @@ int main(int argc, char** argv) {
         exit(-1);
     }
     
+    //seed the RNG
     if(atoi(argv[1]) == 0) srand(time(NULL));
     else srand(atoi(argv[1]));
     
-    /*for (int i=0; i<10; i++) {
-        double rand = unif_rand();
-        printf("%lf\n", rand);
-    }*/
-    
+    //load the histogram from file and prepare useful variables
     ProbHistogram h;
     int load = ProbDist_load(&h, argv[4]);
     if (load < 0) exit(-1);
     printf("read [%s]\n", argv[4]);
+    
+    int max_duration = h.max_duration + 1;
 
     int CPUnum = atoi(argv[2]);
     int IOnum = atoi(argv[3]);
     
     int* CPUbursts = (int*) malloc(CPUnum * sizeof(int));
     int* IObursts = (int*) malloc(IOnum * sizeof(int));
-    
     for (int i=0; i<CPUnum; i++) CPUbursts[i] = 0;
     for (int i=0; i<IOnum; i++) IObursts[i] = 0;
+    
+    
+    double* CPUacceptance;
+    int* CPUalias;
+    
+    //call the sampler
+    Alias_generator(h.CPUprobs, max_duration, CPUacceptance, CPUalias);
     
     CDF_generator(&h, CPUbursts, IObursts, CPUnum, IOnum);
     
@@ -123,14 +168,12 @@ int main(int argc, char** argv) {
         printf("CPU bursts: ");
         print_array(CPUbursts, CPUnum);
     }
-    
     if (ProbDist_checkIO(&h) == 1) {
         printf("IObursts: ");
         print_array(IObursts, IOnum);
     }*/
     
-    int max_duration = h.max_duration + 1;
-    
+    //compare extraction percentages with original probabilities
     int* CPUcompare = (int*) malloc(max_duration * sizeof(int));
     int* IOcompare = (int*) malloc(max_duration * sizeof(int));
     for (int i=0; i<max_duration; i++) {
@@ -157,6 +200,7 @@ int main(int argc, char** argv) {
         printf("                IO Percentage:  %.3lf || IO Probability:  %.3lf\n\n", io, h.IOprobs[i]);
     }
     
+    //free allocated memory
     free(CPUbursts);
     free(IObursts);
     free(CPUcompare);
