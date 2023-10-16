@@ -200,10 +200,34 @@ int* Alias_function(double* hist, int n, int samples) {
 }
 
 
+//Function to write process traces in a file
+int save_trace(const int* CPUtrace, const int* IOtrace, int n, int id, const char* filename){
+    FILE* f=fopen(filename, "w");
+    if (! f) return -1;
+    
+    int arrival = floor(unif_rand() * 10);
+    fprintf(f, "PROCESS \t%d %d\n", id, arrival);
+    
+    for (int i=0; i<n; i++) {
+        
+        if (CPUtrace[i]) {
+            fprintf(f, "CPU_BURST \t%d\n", CPUtrace[i]);
+        }
+        
+        if (IOtrace[i]) {
+            fprintf(f, "IO_BURST \t%d\n", IOtrace[i]);
+        }
+    }
+    
+    fclose(f);
+    return 1;
+}
+
+
 int main(int argc, char** argv) {
     
-    if (argc<5){
-        printf("usage %s <seed> <CPU bursts> <IObursts> <in>\n", argv[0]);
+    if (argc<4){
+        printf("usage %s <seed> <CPU/IO bursts> <in>\n", argv[0]);
         exit(-1);
     }
     
@@ -211,53 +235,67 @@ int main(int argc, char** argv) {
     if(atoi(argv[1]) == 0) srand(time(NULL));
     else srand(atoi(argv[1]));
     
-    //load the histogram from file and prepare useful variables
-    ProbHistogram h;
-    int load = ProbDist_load(&h, argv[4]);
-    if (load < 0) exit(-1);
-    printf("read [%s]\n", argv[4]);
-    
-    int max_duration = h.max_duration + 1;
-
     int CPUnum = atoi(argv[2]);
-    int IOnum = atoi(argv[3]);
+    int IOnum = atoi(argv[2]);
     
-    int* CPUbursts = (int*) malloc(CPUnum * sizeof(int));
-    int* IObursts = (int*) malloc(IOnum * sizeof(int));
-    for (int i=0; i<CPUnum; i++) CPUbursts[i] = 0;
-    for (int i=0; i<IOnum; i++) IObursts[i] = 0;
+    ProbHistogram h;
     
-    
-    //call the sampler
-    int* CPUres = Alias_function(h.CPUprobs, max_duration, CPUnum);
-    int* IOres = Alias_function(h.IOprobs, max_duration, IOnum);
-    
-    CDF_generator(&h, CPUbursts, IObursts, CPUnum, IOnum);
-    
-    /*if (ProbDist_checkCPU(&h) == 1) {
-        printf("CPU bursts: ");
-        print_array(CPUbursts, CPUnum);
+    for (int j=3; j<argc; j++) {
+        
+        //load the histogram from file and prepare useful variables
+        int load = ProbDist_load(&h, argv[j]);
+        if (load < 0) exit(-1);
+        printf("read [%s]\n", argv[j]);
+        
+        int max_duration = h.max_duration + 1;
+        
+        int* CPUbursts = (int*) malloc(CPUnum * sizeof(int));
+        int* IObursts = (int*) malloc(IOnum * sizeof(int));
+        for (int i=0; i<CPUnum; i++) CPUbursts[i] = 0;
+        for (int i=0; i<IOnum; i++) IObursts[i] = 0;
+        
+        
+        //call the sampler
+        //int* CPUres = Alias_function(h.CPUprobs, max_duration, CPUnum);
+        //int* IOres = Alias_function(h.IOprobs, max_duration, IOnum);
+        
+        CDF_generator(&h, CPUbursts, IObursts, CPUnum, IOnum);
+        
+        /*if (ProbDist_checkCPU(&h) == 1) {
+            printf("CPU bursts: ");
+            print_array(CPUbursts, CPUnum);
+        }
+        if (ProbDist_checkIO(&h) == 1) {
+            printf("IObursts: ");
+            print_array(IObursts, IOnum);
+        }
+        
+        printf("\nCPUres:  ");
+        print_array(CPUres, CPUnum);
+        printf("IOres: ");
+        print_array(IOres, IOnum);*/
+        
+        //compare extraction percentages with original probabilities
+        printf("Comparison for CDF Method: \n");
+        compare_percentages(&h, CPUbursts, IObursts, max_duration, CPUnum, IOnum);
+        //printf("\nComparison for Alias Method: \n");
+        //compare_percentages(&h, CPUres, IOres, max_duration, CPUnum, IOnum);
+        
+        //save trace files
+        char filename[sizeof "proc1.txt"];
+        sprintf(filename, "proc%d.txt", j-2);
+        int cdf_trace = save_trace(CPUbursts, IObursts, CPUnum, j-2, filename);
+        printf("Saved trace %d\n\n", j-2);
+        
+        if (cdf_trace < 0) {
+            printf("Failed to save trace %d. Exiting...\n\n", j-2);
+            exit(-1);
+        }
+        
+        //free allocated memory
+        free(CPUbursts);
+        free(IObursts);
     }
-    if (ProbDist_checkIO(&h) == 1) {
-        printf("IObursts: ");
-        print_array(IObursts, IOnum);
-    }
-    
-    printf("\nCPUres:  ");
-    print_array(CPUres, CPUnum);
-    printf("IOres: ");
-    print_array(IOres, IOnum);*/
-    
-    //compare extraction percentages with original probabilities
-    printf("Comparison for CDF Method: \n");
-    compare_percentages(&h, CPUbursts, IObursts, max_duration, CPUnum, IOnum);
-    
-    printf("\nComparison for Alias Method: \n");
-    compare_percentages(&h, CPUres, IOres, max_duration, CPUnum, IOnum);
-    
-    //free allocated memory
-    free(CPUbursts);
-    free(IObursts);
     
     return 0;
 }
