@@ -28,5 +28,8 @@ int main(int argc, char** argv) {
     printf("Probability check for CPU: %d\n", checkCPU);
     printf("Probability check for IO: %d\n", checkIO);
     
+    free(h.CPUprobs);
+    free(h.IOprobs);
+    
     return 0;
 }

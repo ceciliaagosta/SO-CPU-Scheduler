@@ -256,9 +256,9 @@ int main(int argc, char** argv) {
         
         
         //call the sampler
+        
         //int* CPUres = Alias_function(h.CPUprobs, max_duration, CPUnum);
         //int* IOres = Alias_function(h.IOprobs, max_duration, IOnum);
-        
         CDF_generator(&h, CPUbursts, IObursts, CPUnum, IOnum);
         
         /*if (ProbDist_checkCPU(&h) == 1) {
@@ -269,7 +269,6 @@ int main(int argc, char** argv) {
             printf("IObursts: ");
             print_array(IObursts, IOnum);
         }
-        
         printf("\nCPUres:  ");
         print_array(CPUres, CPUnum);
         printf("IOres: ");
@@ -295,6 +294,8 @@ int main(int argc, char** argv) {
         //free allocated memory
         free(CPUbursts);
         free(IObursts);
+        free(h.CPUprobs);
+        free(h.IOprobs);
     }
     
     return 0;
