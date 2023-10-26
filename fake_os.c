@@ -159,7 +159,8 @@ void FakeOS_simStep(FakeOS* os, int num_cpus){
                     printf("\t\tend process\n");
                     running->next_burst = 0;
                     free(running); // kill process
-                } else {
+                } 
+                else {
                     //printf("\t\tprevious prediction: %.2f\n", running->next_burst);
                     running->next_burst = running->next_burst * (1-ALPHA) + running->burst * ALPHA;
                     //printf("\t\tnext burst: %.2f\n", running->next_burst);
@@ -177,7 +178,7 @@ void FakeOS_simStep(FakeOS* os, int num_cpus){
                             break;
                     }
                 }
-                if (!running->preempted) running->burst = 0;
+                if (running && !running->preempted) running->burst = 0;
                 os->running[cpu] = 0;
             }
         }

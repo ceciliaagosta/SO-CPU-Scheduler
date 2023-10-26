@@ -219,6 +219,10 @@ int save_trace(const int* CPUtrace, const int* IOtrace, int n, int id, const cha
         }
     }
     
+    if (CPUtrace[n]) {
+        fprintf(f, "CPU_BURST \t%d\n", CPUtrace[n]);
+    }
+    
     fclose(f);
     return 1;
 }
@@ -226,8 +230,8 @@ int save_trace(const int* CPUtrace, const int* IOtrace, int n, int id, const cha
 
 int main(int argc, char** argv) {
     
-    if (argc<4){
-        printf("usage %s <seed> <CPU/IO bursts> <in>\n", argv[0]);
+    if (argc<5){
+        printf("usage %s <seed> <CPU/IO bursts> <save> <in>\n", argv[0]);
         exit(-1);
     }
     
@@ -235,12 +239,14 @@ int main(int argc, char** argv) {
     if(atoi(argv[1]) == 0) srand(time(NULL));
     else srand(atoi(argv[1]));
     
-    int CPUnum = atoi(argv[2]);
+    int CPUnum = atoi(argv[2]) + 1;
     int IOnum = atoi(argv[2]);
+    
+    int save = atoi(argv[3]);
     
     ProbHistogram h;
     
-    for (int j=3; j<argc; j++) {
+    for (int j=4; j<argc; j++) {
         
         //load the histogram from file and prepare useful variables
         int load = ProbDist_load(&h, argv[j]);
@@ -281,14 +287,16 @@ int main(int argc, char** argv) {
         //compare_percentages(&h, CPUres, IOres, max_duration, CPUnum, IOnum);
         
         //save trace files
-        char filename[sizeof "proc1.txt"];
-        sprintf(filename, "proc%d.txt", j-2);
-        int cdf_trace = save_trace(CPUbursts, IObursts, CPUnum, j-2, filename);
-        printf("Saved trace %d\n\n", j-2);
-        
-        if (cdf_trace < 0) {
-            printf("Failed to save trace %d. Exiting...\n\n", j-2);
-            exit(-1);
+        if (save) {
+            char filename[sizeof "proc1.txt"];
+            sprintf(filename, "proc%d.txt", j-3);
+            int cdf_trace = save_trace(CPUbursts, IObursts, IOnum, j-3, filename);
+            printf("Saved trace %d\n\n", j-3);
+            
+            if (cdf_trace < 0) {
+                printf("Failed to save trace %d. Exiting...\n\n", j-3);
+                exit(-1);
+            }
         }
         
         //free allocated memory

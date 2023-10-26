@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "fake_process.h"
 
 #define LINE_LENGTH 1024
@@ -36,6 +37,7 @@ int FakeProcess_load(FakeProcess* p, const char* filename) {
       e->list.prev=e->list.next=0;
       e->type=CPU;
       e->duration=duration;
+      assert(e->duration > 0 && "found CPU event with duration=0 or less");
       List_pushBack(&p->events, (ListItem*)e);
       ++num_events;
       goto next_round;
@@ -47,6 +49,7 @@ int FakeProcess_load(FakeProcess* p, const char* filename) {
       e->list.prev=e->list.next=0;
       e->type=IO;
       e->duration=duration;
+      assert(e->duration > 0 && "found IO event with duration=0 or less");
       List_pushBack(&p->events, (ListItem*)e);
       ++num_events;
       goto next_round;
