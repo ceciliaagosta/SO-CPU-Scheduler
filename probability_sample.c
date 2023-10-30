@@ -132,7 +132,7 @@ void Alias_generator(double* hist, int n, double* acceptance, int* alias) {
     acceptance[0] = 0;
     alias[0] = 0;
     for (int i=1; i<n; i++) {
-        acceptance[i] = hist[i] * (double)n;
+        acceptance[i] = hist[i] * (double)(n-1);
         //printf("Acceptance[%d]: %.3lf ", i, acceptance[i]);
         if (acceptance[i] == 1) alias[i] = i;       //if the acceptance is 1, the alias is useless, can initialize as the index.
         else alias[i] = 0;
@@ -144,7 +144,7 @@ void Alias_generator(double* hist, int n, double* acceptance, int* alias) {
     while (1) {
         overfull = -1;
         underfull = -1;
-        for (int i=n-1; i>=0; i--) {
+        for (int i=n-1; i>=1; i--) {
             if (acceptance[i] > 1) overfull = i;
             if (acceptance[i] < 1 && alias[i] == 0) underfull = i;
         }
@@ -168,6 +168,7 @@ void Alias_sampler(double* acceptance, int* alias, int* res, int n, int samples)
     
     for (int s=0; s<samples; s++) {
         double random = unif_rand();
+
         //printf("random: %.3lf  ", random);
         
         int i = (int)floor(n * random) + 1;
@@ -183,20 +184,18 @@ void Alias_sampler(double* acceptance, int* alias, int* res, int n, int samples)
 }
 
 //Alias Method
-int* Alias_function(double* hist, int n, int samples) {
+void Alias_function(double* hist, int* res, int n, int samples) {
     
     double* acceptance = (double*) malloc(sizeof(double) * n);
     int* alias = (int*) malloc(sizeof(int) * n);
     
     Alias_generator(hist, n, acceptance, alias);
     
-    int* res = (int*) malloc(samples * sizeof(int));
     Alias_sampler(acceptance, alias, res, n-1, samples);
     
     free(acceptance);
     free(alias);
     
-    return res;
 }
 
 
@@ -260,12 +259,25 @@ int main(int argc, char** argv) {
         for (int i=0; i<CPUnum; i++) CPUbursts[i] = 0;
         for (int i=0; i<IOnum; i++) IObursts[i] = 0;
         
+        int* CPUres = (int*) malloc(CPUnum * sizeof(int));
+        int* IOres = (int*) malloc(IOnum * sizeof(int));
+        for (int i=0; i<CPUnum; i++) CPUres[i] = 0;
+        for (int i=0; i<IOnum; i++) IOres[i] = 0;
+        
+        clock_t start_time, end_time;
+        double alias_time, cdf_time;
+        
         //call the sampler
+        start_time = clock();
+        Alias_function(h.CPUprobs, CPUres, max_duration, CPUnum);
+        Alias_function(h.IOprobs, IOres, max_duration, IOnum);
+        end_time = clock();
+        alias_time = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
         
-        int* CPUres = Alias_function(h.CPUprobs, max_duration, CPUnum);
-        int* IOres = Alias_function(h.IOprobs, max_duration, IOnum);
-        
+        start_time = clock();
         CDF_generator(&h, CPUbursts, IObursts, CPUnum, IOnum);
+        end_time = clock();
+        cdf_time = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
         
         /*if (ProbDist_checkCPU(&h) == 1) {
             printf("CPU bursts: ");
@@ -282,8 +294,10 @@ int main(int argc, char** argv) {
         
         //compare extraction percentages with original probabilities
         printf("Comparison for CDF Method: \n");
+        printf("\tDuration of execution: %lf\n", cdf_time);
         compare_percentages(&h, CPUbursts, IObursts, max_duration, CPUnum, IOnum);
         printf("\nComparison for Alias Method: \n");
+        printf("\tDuration of execution: %lf\n", alias_time);
         compare_percentages(&h, CPUres, IOres, max_duration, CPUnum, IOnum);
         
         //save trace files
