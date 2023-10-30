@@ -260,11 +260,11 @@ int main(int argc, char** argv) {
         for (int i=0; i<CPUnum; i++) CPUbursts[i] = 0;
         for (int i=0; i<IOnum; i++) IObursts[i] = 0;
         
-        
         //call the sampler
         
-        //int* CPUres = Alias_function(h.CPUprobs, max_duration, CPUnum);
-        //int* IOres = Alias_function(h.IOprobs, max_duration, IOnum);
+        int* CPUres = Alias_function(h.CPUprobs, max_duration, CPUnum);
+        int* IOres = Alias_function(h.IOprobs, max_duration, IOnum);
+        
         CDF_generator(&h, CPUbursts, IObursts, CPUnum, IOnum);
         
         /*if (ProbDist_checkCPU(&h) == 1) {
@@ -283,18 +283,28 @@ int main(int argc, char** argv) {
         //compare extraction percentages with original probabilities
         printf("Comparison for CDF Method: \n");
         compare_percentages(&h, CPUbursts, IObursts, max_duration, CPUnum, IOnum);
-        //printf("\nComparison for Alias Method: \n");
-        //compare_percentages(&h, CPUres, IOres, max_duration, CPUnum, IOnum);
+        printf("\nComparison for Alias Method: \n");
+        compare_percentages(&h, CPUres, IOres, max_duration, CPUnum, IOnum);
         
         //save trace files
         if (save) {
-            char filename[sizeof "proc1.txt"];
-            sprintf(filename, "proc%d.txt", j-3);
-            int cdf_trace = save_trace(CPUbursts, IObursts, IOnum, j-3, filename);
-            printf("Saved trace %d\n\n", j-3);
+            char filename_cdf[sizeof "cdf1.txt"];
+            sprintf(filename_cdf, "cdf%d.txt", j-3);
+            int cdf_trace = save_trace(CPUbursts, IObursts, IOnum, j-3, filename_cdf);
+            printf("Saved cdf trace %d\n\n", j-3);
             
             if (cdf_trace < 0) {
-                printf("Failed to save trace %d. Exiting...\n\n", j-3);
+                printf("Failed to save cdf trace %d. Exiting...\n\n", j-3);
+                exit(-1);
+            }
+            
+            char filename_alias[sizeof "alias1.txt"];
+            sprintf(filename_alias, "alias%d.txt", j-3);
+            int alias_trace = save_trace(CPUbursts, IObursts, IOnum, j-3, filename_alias);
+            printf("Saved alias trace %d\n\n", j-3);
+            
+            if (alias_trace < 0) {
+                printf("Failed to save alias trace %d. Exiting...\n\n", j-3);
                 exit(-1);
             }
         }
@@ -304,6 +314,8 @@ int main(int argc, char** argv) {
         free(IObursts);
         free(h.CPUprobs);
         free(h.IOprobs);
+        free(CPUres);
+        free(IOres);
     }
     
     return 0;
