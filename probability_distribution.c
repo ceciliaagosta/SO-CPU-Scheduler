@@ -143,7 +143,7 @@ int ProbDist_checkIO(const ProbHistogram* h) {
     for (int i=1; i<h->max_duration+1; i++) {
         
         IOsum += IOprobs[i];
-        //printf("IOsum = %.2f\n", IOsum);
+        //printf("IOsum = %lf\n", IOsum);
         // if sum of probabilities for IO bursts is bigger than 1, returns -1
         if (IOsum - 1 > 0) {
             //printf("IOsum = %.2f > 0\n", IOsum);

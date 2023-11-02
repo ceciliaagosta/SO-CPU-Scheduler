@@ -383,6 +383,12 @@ void schedSRJF_QP(FakeOS* os, int cpu, void* args_){
 //****************************************************************************
 
 int main(int argc, char** argv) {
+    
+    if (argc<3){
+        printf("usage %s <#CPUs> <all trace files>\n", argv[0]);
+        exit(-1);
+    }
+    
     int num_cpus = atoi(argv[1]);
     FakeOS_init(&os, num_cpus);
     SchedRRArgs srr_args;

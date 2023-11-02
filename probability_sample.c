@@ -294,10 +294,10 @@ int main(int argc, char** argv) {
         
         //compare extraction percentages with original probabilities
         printf("Comparison for CDF Method: \n");
-        printf("\tDuration of execution: %lf\n", cdf_time);
+        printf("\tDuration of execution (sec): %lf\n", cdf_time);
         compare_percentages(&h, CPUbursts, IObursts, max_duration, CPUnum, IOnum);
         printf("\nComparison for Alias Method: \n");
-        printf("\tDuration of execution: %lf\n", alias_time);
+        printf("\tDuration of execution (sec): %lf\n", alias_time);
         compare_percentages(&h, CPUres, IOres, max_duration, CPUnum, IOnum);
         
         //save trace files
@@ -314,7 +314,7 @@ int main(int argc, char** argv) {
             
             char filename_alias[sizeof "alias1.txt"];
             sprintf(filename_alias, "alias%d.txt", j-3);
-            int alias_trace = save_trace(CPUbursts, IObursts, IOnum, j-3, filename_alias);
+            int alias_trace = save_trace(CPUres, IOres, IOnum, j-3, filename_alias);
             printf("Saved alias trace %d\n\n", j-3);
             
             if (alias_trace < 0) {

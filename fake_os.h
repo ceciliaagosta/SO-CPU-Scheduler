@@ -6,7 +6,7 @@
 #endif
 
 #ifndef SCHED_FN
-#define SCHED_FN schedSJF_QP      //Scheduling function
+#define SCHED_FN schedFCFS     //Scheduling function
 #endif
                         
 #pragma once
