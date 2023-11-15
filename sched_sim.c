@@ -246,6 +246,8 @@ void schedSJF_BP(FakeOS* os, int cpu, void* args_){
         return;
     }
     
+    float ALPHA = os->alpha;
+    
     //find the shortest job in ready
     FakePCB* shortest_process = Sched_findShortestJob(os, 1);
     float shortest_burst = shortest_process->next_burst;
@@ -384,19 +386,52 @@ void schedSRJF_QP(FakeOS* os, int cpu, void* args_){
 
 int main(int argc, char** argv) {
     
-    if (argc<3){
-        printf("usage %s <#CPUs> <all trace files>\n", argv[0]);
+    if (argc<5){
+        printf("usage %s <#CPUs> <scheduler> <alpha> <all trace files>\n", argv[0]);
         exit(-1);
     }
     
     int num_cpus = atoi(argv[1]);
-    FakeOS_init(&os, num_cpus);
+    float alpha = atof(argv[3]);
+    
+    if (alpha < 0 || alpha > 1) alpha = 0.5;
+    
+    FakeOS_init(&os, num_cpus, alpha);
     SchedRRArgs srr_args;
     srr_args.quantum=5;
     os.schedule_args=&srr_args;
-    os.schedule_fn=SCHED_FN;
     
-    for (int i=2; i<argc; ++i){
+    
+    int sched = atoi(argv[2]);
+    switch(sched){
+        case 1:
+            os.schedule_fn=schedFCFS;
+            printf("\nUSING FCFS\n\n");
+            break;
+        case 2:
+            os.schedule_fn=schedRR;
+            printf("\nUSING RR\n\n");
+            break;
+        case 3:
+            os.schedule_fn=schedSJF_np;
+            printf("\nUSING SJF\n\n");
+            break;
+        case 4:
+            os.schedule_fn=schedSRJF;
+            printf("\nUSING SRTF\n\n");
+            break;
+        case 5:
+            os.schedule_fn=schedSJF_QP;
+            printf("\nUSING SJF w/QP (alpha = %f)\n\n", alpha);
+            break;
+        default:
+            os.schedule_fn=schedFCFS;
+            printf("\nUSING FCFS\n\n");
+            ;
+    }
+    
+    
+    for (int i=4; i<argc; ++i){
         FakeProcess new_process;
         int num_events=FakeProcess_load(&new_process, argv[i]);
         printf("loading [%s], pid: %d, events: %d\n",

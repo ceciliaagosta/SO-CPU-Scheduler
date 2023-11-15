@@ -1,13 +1,5 @@
 #include "fake_process.h"
 #include "linked_list.h"
-
-#ifndef ALPHA
-#define ALPHA 0.5      //Value of alpha in burst/quantum prediction formula (i.e. Exponential Average)
-#endif
-
-#ifndef SCHED_FN
-#define SCHED_FN schedFCFS     //Scheduling function
-#endif
                         
 #pragma once
 
@@ -40,10 +32,11 @@ typedef struct FakeOS{
     float avg_WaitingTime;      //Waiting Time accumulator for the processes (used to compute and store average at the end of the simulation)
     
     int num_cpus;
+    float alpha;
     FakePCB** running;
 } FakeOS;
 
-void FakeOS_init(FakeOS* os, int num_cpus);       //Inizializza il FakeOS os (tutti i campi a 0 e le liste vuote)
+void FakeOS_init(FakeOS* os, int num_cpus, float alpha);       //Inizializza il FakeOS os (tutti i campi a 0 e le liste vuote)
 
 void FakeOS_simStep(FakeOS* os, int num_cpus);    //Simula la creazione e scheduling di processi in un SO, avanzando la simulazione un passo alla volta
 

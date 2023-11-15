@@ -5,7 +5,7 @@
 #include "fake_os.h"
 
 
-void FakeOS_init(FakeOS* os, int num_cpus) {
+void FakeOS_init(FakeOS* os, int num_cpus, float alpha) {
     os->running = (FakePCB**) malloc(sizeof(FakePCB*)*num_cpus);
     for (int cpu=0; cpu < num_cpus; ++cpu) os->running[cpu] = NULL;
     List_init(&os->ready);
@@ -16,6 +16,7 @@ void FakeOS_init(FakeOS* os, int num_cpus) {
     os->avg_ArrivalTime = 0;
     os->avg_WaitingTime = 0;
     os->num_cpus = num_cpus;
+    os->alpha = alpha;
 }
 
 void FakeOS_createProcess(FakeOS* os, FakeProcess* p) {
@@ -77,6 +78,7 @@ void FakeOS_simStep(FakeOS* os, int num_cpus){
     printf("\n******************* TIME: %08d *******************\n\n", os->timer);
     
     int NUM_CPUS = os->num_cpus;
+    float ALPHA = os->alpha;
 
     //scan process waiting to be started
     //and create all processes starting now
